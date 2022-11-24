@@ -331,16 +331,17 @@ void FiducialsNode::camInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg
 
 void FiducialsNode::imageCallback(const sensor_msgs::ImageConstPtr & msg)
 {
+
     if (enable_detections == false) {
         return; //return without doing anything
     }
 
     if(verbose){
-        ROS_INFO("Got image %d", msg->header.seq);       
+        ROS_INFO("Got image %d", msg->header.seq);
     }
 
     fiducial_msgs::FiducialArray fva;
-    fva.header.stamp = msg->header.stamp;
+    fva.header.stamp = ros::Time::now(); //msg->header.stamp;
     fva.header.frame_id = frameId;
     fva.image_seq = msg->header.seq;
 
@@ -355,10 +356,12 @@ void FiducialsNode::imageCallback(const sensor_msgs::ImageConstPtr & msg)
             ROS_INFO("Detected %d markers", detected_count);
         }
 
+        ROS_INFO("Ids %f", float(ids.size()));
+
         for (size_t i=0; i<ids.size(); i++) {
             if (std::count(ignoreIds.begin(), ignoreIds.end(), ids[i]) != 0) {
                 if(verbose){
-                    ROS_INFO("Ignoring id %d", ids[i]);                    
+                    ROS_INFO("Ignoring id %d", ids[i]);
                 }
                 continue;
             }
@@ -382,9 +385,9 @@ void FiducialsNode::imageCallback(const sensor_msgs::ImageConstPtr & msg)
             aruco::drawDetectedMarkers(cv_ptr->image, corners, ids);
         }
 
-        if (publish_images) {
+        /*if (publish_images) {
             image_pub.publish(cv_ptr->toImageMsg());
-        }
+        }*/
     }
     catch(cv_bridge::Exception & e) {
         ROS_ERROR("cv_bridge exception: %s", e.what());
@@ -523,6 +526,9 @@ void FiducialsNode::poseEstimateCallback(const FiducialArrayConstPtr & msg)
                     }
                 }
             }
+            if (publish_images && ids.size()>0) {
+                image_pub.publish(cv_ptr->toImageMsg());
+            }
         }
         catch(cv_bridge::Exception & e) {
             ROS_ERROR("cv_bridge exception: %s", e.what());
@@ -533,7 +539,7 @@ void FiducialsNode::poseEstimateCallback(const FiducialArrayConstPtr & msg)
     }
     if (vis_msgs)
         pose_pub.publish(vma);
-    else 
+    else
         pose_pub.publish(fta);
 }
 
@@ -606,9 +612,9 @@ FiducialsNode::FiducialsNode() : nh(), pnh("~"), it(nh)
 
     detectorParams = new aruco::DetectorParameters();
 
-    pnh.param<bool>("publish_images", publish_images, false);
-    pnh.param<double>("fiducial_len", fiducial_len, 0.14);
-    pnh.param<int>("dictionary", dicno, 7);
+    pnh.param<bool>("publish_images", publish_images, true);
+    pnh.param<double>("fiducial_len", fiducial_len, 0.02);
+    pnh.param<int>("dictionary", dicno, 0);
     pnh.param<bool>("do_pose_estimation", doPoseEstimation, true);
     pnh.param<bool>("publish_fiducial_tf", publishFiducialTf, true);
     pnh.param<bool>("vis_msgs", vis_msgs, false);
@@ -665,7 +671,7 @@ FiducialsNode::FiducialsNode() : nh(), pnh("~"), it(nh)
 
     if (vis_msgs)
         pose_pub = nh.advertise<vision_msgs::Detection2DArray>("fiducial_transforms", 1);
-    else        
+    else
         pose_pub = nh.advertise<fiducial_msgs::FiducialTransformArray>("fiducial_transforms", 1);
 
     dictionary = aruco::getPredefinedDictionary(dicno);
@@ -726,7 +732,7 @@ FiducialsNode::FiducialsNode() : nh(), pnh("~"), it(nh)
     pnh.param<int>("perspectiveRemovePixelPerCell", detectorParams->perspectiveRemovePixelPerCell, 8);
     pnh.param<double>("polygonalApproxAccuracyRate", detectorParams->polygonalApproxAccuracyRate, 0.01); /* default 0.05 */
 
-    ROS_INFO("Aruco detection ready");
+    ROS_INFO("Aruco detection ready!!!!");
 }
 
 int main(int argc, char ** argv) {
